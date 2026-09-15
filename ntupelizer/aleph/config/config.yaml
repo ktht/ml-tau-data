@@ -1,6 +1,0 @@
-input_dir: /local/laurits/ALEPH/1994_old/LAST
-output_dir: /local/laurits/ALEPH/ALEPH_jet
-num_chunks: 189
-output_level: jet # "jet" (one row per jet) or "event" (one row per event)
-jets_per_file: 100000 # jets per output file; at jet level that is exactly 100000 rows
-row_group_size: 1024 # rows per parquet row group

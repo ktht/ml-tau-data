@@ -255,43 +255,10 @@ snakemake --configfile ntupelizer/config/workflow_test.yaml --profile ntupelizer
 
 ## ALEPH data
 
-The ALEPH ntuples are produced by a separate, self-contained pipeline under
-`ntupelizer/aleph/`, configured in `ntupelizer/aleph/config/config.yaml`. It runs
-at jet level (`output_level: jet`), one row per jet, which is what the chunked
-dataset is built from; `output_level: event` gives one row per event instead,
-with the jets of the event in list columns.
-
-Its output is chunked the same way as the main workflow's: numbered files of
-`jets_per_file` jets (default 100000), written with `row_group_size` rows per row
-group. At jet level that is exactly 100000 rows per file. Rows are never split
-across files, so an event-level dataset instead lands on a whole-event boundary
-just under the target.
-
-Write and submit the processing jobs:
-
-```bash
-python3 ntupelizer/aleph/scripts/ntupelize_all.py    # writes submission_scripts/chunk_*.sh
-for job in <output_dir>/submission_scripts/chunk_*.sh; do sbatch "$job"; done
-```
-
-Each job streams the ROOT files assigned to it straight into chunk files, so
-there is no per-ROOT-file intermediate. The jobs run concurrently and cannot
-share a file index, so their filenames carry a per-job prefix
-(`job0000_00000.parquet`) and each job's last file holds only its leftovers. To
-turn those tails into one uniform series — or to rechunk a dataset that was
-produced before this was in place — run:
-
-```bash
-python3 ntupelizer/aleph/scripts/rechunk.py \
-    -i /local/laurits/ALEPH/ALEPH_jet \
-    -o /local/laurits/ALEPH/ALEPH_jet_chunked
-```
-
-`rechunk.py` streams a row group at a time and writes each output file once, so
-its memory use is bounded by one output file. It reads the level (jet or event)
-off the input schema, refuses to overwrite its own inputs, and fails rather than
-reporting success if the row count in does not match the row count out. Pass
-`--jets-per-file`, `--row-group-size` or `--prefix` to override the defaults.
+ALEPH ntuple production has moved to its own repository,
+[lep-data](https://github.com/HEP-KBFI/lep-data). It shared no code with this
+workflow beyond the helpers in `ntupelizer/tools/features.py`, which were copied
+across.
 
 ## Repository structure
 
@@ -319,11 +286,6 @@ ntupelizer/
     apply_weights.py               # standalone: re-weight existing chunks
     validate_ntuples.py            # stage 4
     slurm_status.py                # Snakemake cluster-status helper
-  aleph/                           # standalone ALEPH pipeline (see above)
-    scripts/ntupelize_all.py       # writes the per-chunk SLURM job scripts
-    scripts/ntupelize_list.py      # one job: ROOT files -> ~100k-jet chunks
-    scripts/rechunk.py             # rechunk existing .parquet into ~100k-jet files
-    tools/chunking.py              # chunked parquet writer shared by the two
   tools/
     ntupelizing.py                 # PodioROOTNtuplelizer / EDM4HEPNtupelizer
     clustering.py                  # reco and gen jet clustering (FastJet)
