@@ -260,6 +260,74 @@ ALEPH ntuple production has moved to its own repository,
 workflow beyond the helpers in `ntupelizer/tools/features.py`, which were copied
 across.
 
+## Misc
+
+### Rare decay mode dataset
+
+`ntupelizer/scripts/ParTauDETR_dataset_to_rare.py` adds a
+`gen_jet_tau_decay_mode_rare` column to the tau daughter (ParTauDETR) dataset. It
+counts each tau's visible daughters by PDG and matches the resulting multiset
+against the twelve most common tau decays; anything else is labelled 15
+("other"). Background (`qq`) files are skipped, since only the signal sample has
+a meaningful gen-level decay mode.
+
+The twelve targets are the most common modes in descending branching fraction,
+stopping just before the first mode containing a photon (`γ π⁰ π`, 2.8e-3), so
+the class id is the frequency rank. Fractions measured on 200k signal jets:
+
+| class | decay mode | fraction |
+|------:|------------|---------:|
+| 0  | π⁰ π       | 3.94e-1 |
+| 1  | π          | 1.75e-1 |
+| 2  | 3π         | 1.41e-1 |
+| 3  | 2π⁰ π      | 1.37e-1 |
+| 4  | π⁰ 3π      | 6.69e-2 |
+| 5  | 3π⁰ π      | 1.50e-2 |
+| 6  | π K⁰       | 1.37e-2 |
+| 7  | K          | 1.13e-2 |
+| 8  | 2π⁰ 3π     | 6.65e-3 |
+| 9  | π⁰ K       | 6.46e-3 |
+| 10 | π⁰ π K⁰    | 6.16e-3 |
+| 11 | 2π K       | 5.43e-3 |
+| 15 | other      | 2.22e-2 |
+
+Together the twelve cover 97.8% of signal jets. Note the PDG codes the matcher
+expects: the neutral kaon is **311** (`K⁰`) in this sample, not 310 (`K⁰_S`) —
+5309 vs 503 daughters over those 200k jets — and the single-kaon modes are the
+charged kaon, **321**. A photon among the visible daughters vetoes every class,
+so radiative decays land in "other" by design; `γ π⁰ π` alone is 2.8e-3.
+
+Leptonic taus never appear: the ntupelizer drops `gen_jet_tau_decaymode == 16`
+before these files are written, which is also why the script's electron-daughter
+filter removes almost nothing.
+
+Run it with:
+
+```bash
+./run.sh python3 ntupelizer/scripts/ParTauDETR_dataset_to_rare.py \
+    -i /scratch/persistent/laurits/ml-tau/20260818_tauDaughterDataset \
+    -o /scratch/persistent/laurits/ml-tau/20260824_rareDecaysDataset
+```
+
+Both paths default to those values, so plain
+`./run.sh python3 ntupelizer/scripts/ParTauDETR_dataset_to_rare.py` does the same
+thing. The script runs in one process and is not part of the Snakemake workflow —
+run it by hand after the dataset is built.
+
+It is a 1:1 file transform: one output per input, **under the same filename**,
+with the same rows (minus the electron cut) and the same `--row-group-size`
+(default 1024, matching what `merge_files.py` writes). Only the input's daughter
+PDG column goes through awkward; the rest of the table is carried through as
+Arrow, so every other column keeps exactly the type it had. It refuses to run
+with `-o` equal to `-i`.
+
+`--batch-size` (default 100000) controls only how many rows are held in memory at
+once — it has no effect on the output layout, so lower it if the job is tight on
+memory. On a 100k-jet input, 100000 peaks around 1.8 GB and 20000 around 1.0 GB,
+for the same output. One caveat: a batch boundary inside a file starts a new row
+group, so keep `--batch-size` at or above the input's row count if you want the
+row groups to come out perfectly uniform.
+
 ## Repository structure
 
 ```
@@ -285,6 +353,7 @@ ntupelizer/
     compute_weights.py             # stage 2
     apply_weights.py               # standalone: re-weight existing chunks
     validate_ntuples.py            # stage 4
+    ParTauDETR_dataset_to_rare.py  # standalone: add the rare decay mode label
     slurm_status.py                # Snakemake cluster-status helper
   tools/
     ntupelizing.py                 # PodioROOTNtuplelizer / EDM4HEPNtupelizer
@@ -350,5 +419,5 @@ venv lives on the host and needs only Snakemake, while the scientific stack only
 ever has to exist inside the image.
 
 `run.sh` in the repository root is a separate manual wrapper around the same
-image, used only by the ALEPH job scripts. The Snakemake workflow does not use
-it, and the two set different bind mounts.
+image, for running a script by hand outside the workflow (see Misc). The
+Snakemake workflow does not use it, and the two set different bind mounts.
