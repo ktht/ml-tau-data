@@ -30,6 +30,11 @@ rather than living inside a shell string.
 # processing config lives elsewhere under ntupelizer/config/.
 configfile: "ntupelizer/config/workflow.yaml"
 
+# Expand shell variables defined in the YAML config file
+import os
+for key in ("output_dir", "temp_dir"):
+    config[key] = os.path.expandvars(config[key])
+
 # common.smk first: every stage file below uses the names it defines.
 include: "rules/common.smk"
 include: "rules/ntupelize.smk"

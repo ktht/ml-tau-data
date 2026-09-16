@@ -222,13 +222,23 @@ class GenTauInfoMatcherWithDaughters(GenTauInfoMatcher):
       - gen_jet_tau_vis_daughter_charges: float charge
     """
 
-    def __init__(self, arrays, gen_jets, idx_map_branch="idx_mc", debug=False):
+    INTERMEDIATE_MESON_PDGS = frozenset({221, 223, 323})
+
+    def __init__(
+        self,
+        arrays,
+        gen_jets,
+        idx_map_branch="idx_mc",
+        debug=False,
+        replace_intermediate_mesons=False,
+    ):
         super().__init__(
             arrays=arrays,
             gen_jets=gen_jets,
             idx_map_branch=idx_map_branch,
             debug=debug,
         )
+        self.replace_intermediate_mesons = replace_intermediate_mesons
         self.properties += [
             "tau_vis_daughter_p4s",
             "tau_vis_daughter_pdgs",
@@ -244,9 +254,46 @@ class GenTauInfoMatcherWithDaughters(GenTauInfoMatcher):
             }
         )
 
+    def replace_mesons_with_daughters(self, tau_daughters, event):
+        relation_indices = event["_MCParticles_daughters.index"]
+        daughter_begin = event["MCParticles.daughters_begin"]
+        daughter_end = event["MCParticles.daughters_end"]
+        expanded_tau_daughters = []
+
+        for daughters in tau_daughters:
+            expanded_daughters = []
+            for daughter_idx in daughters:
+                daughter_idx = int(daughter_idx)
+                daughter_pdg = int(event["MCParticles.PDG"][daughter_idx])
+                if abs(daughter_pdg) in self.INTERMEDIATE_MESON_PDGS:
+                    immediate_daughters = [
+                        int(idx)
+                        for idx in relation_indices[
+                            daughter_begin[daughter_idx] : daughter_end[daughter_idx]
+                        ]
+                    ]
+                    is_eta_to_two_photons = abs(daughter_pdg) == 221 and len(
+                        immediate_daughters
+                    ) == 2 and all(
+                        abs(int(event["MCParticles.PDG"][idx])) == 22
+                        for idx in immediate_daughters
+                    )
+                    if is_eta_to_two_photons:
+                        expanded_daughters.append(daughter_idx)
+                    else:
+                        expanded_daughters.extend(immediate_daughters)
+                else:
+                    expanded_daughters.append(daughter_idx)
+            expanded_tau_daughters.append(expanded_daughters)
+
+        return expanded_tau_daughters
+
     def retrieve_tau_info_from_daughters(
         self, tau_daughters, n_taus, event, event_particle_p4s
     ):
+        if self.replace_intermediate_mesons:
+            tau_daughters = self.replace_mesons_with_daughters(tau_daughters, event)
+
         # Get the parent dict (decaymode, tau_p4, tau_daughter_PDG, tau_vis_energy)
         tau_info = super().retrieve_tau_info_from_daughters(
             tau_daughters, n_taus, event, event_particle_p4s

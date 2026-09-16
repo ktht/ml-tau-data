@@ -48,7 +48,9 @@ rule ntupelize:
                     ++output_path="{params.per_file_tmp}/$stem.parquet" \
                     ++is_signal={params.is_signal} \
                     ++ntupelizer_class={params.ntupelizer_class} \
-                    hydra.run.dir=/tmp; then
+                    hydra.run.dir=/tmp \
+                    hydra.output_subdir=null \
+                    hydra/job_logging=disabled; then
                 n_ok=$((n_ok + 1))
             else
                 echo "WARNING: ntupelize failed for $f (exit $?), skipping"

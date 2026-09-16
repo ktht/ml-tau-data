@@ -120,6 +120,20 @@ ntupelizer scripts by hand on the host, outside the container.
 > `AttributeError: module 'pulp' has no attribute 'list_solvers'`. `setup.py`
 > pins this; the note is here in case you install Snakemake by hand.
 
+> **Note:** Use `python3` and **not** `python` to create the venv even if the latter resolves to `python3`.
+> The reason is that the former creates the following symlinks in venv:
+> ```
+> python3 -> python
+> python -> /usr/bin/python
+> ```
+> while a venv `python3` produces these symlinks:
+> ```
+> python -> python3
+> python3 -> /usr/bin/python3
+> ```
+> This is important because `/usr/bin/python` does not exist on compute nodes, but `/usr/bin/python3` does.
+> Even though the jobs are run inside containers, the job orchestration performed by `snakemake` still requires a working installation of Python.
+
 ## Configuration
 
 Edit `ntupelizer/config/workflow.yaml` before running:

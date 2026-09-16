@@ -1,6 +1,7 @@
-output_dir: /local/laurits/0914_ParTauDETR_dataset
-temp_dir: /local/laurits/0914_ParTauDETR_dataset_tmp # ntupelized batches; kept, so stages 2-5 can be re-run without re-ntupelizing
+output_dir: /local/${USER}/0915_ParTauDETR_dataset
+temp_dir: /local/${USER}/tmp/ntupelized_tmp # ntupelized batches; kept, so stages 2-5 can be re-run without re-ntupelizing
 ntupelizer_class: DecayProductNtupelizer # or PodioROOTNtuplelizer
+replace_intermediate_mesons: true
 chunk_size: 100000 # max events per output file: z_train_00000.parquet, z_train_00001.parquet, ...
 row_group_size: 1024 # rows per parquet row group
 split_seed: 12345 # seed for reproducible train/test assignment and output shuffling
